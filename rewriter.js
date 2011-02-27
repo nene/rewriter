@@ -165,10 +165,60 @@ var dumper = {
   }
 };
 
+var optimizer = {
+  opt: function(s) {
+    if (typeof s === "object" && s && this[s.type]) {
+      return this[s.type](s);
+    }
+    else if (typeof s === "object" && s && s.length) {
+      for (var i=0; i<s.length; i++) {
+        s[i] = this.opt(s[i]);
+      }
+    }
+    else if (typeof s === "object" && s) {
+      for (i in s) {
+        s[i] = this.opt(s[i]);
+      }
+    }
+    return s;
+  },
+  
+  // Returns unique variable name
+  count: 0,
+  getVar: function(prefix) {
+    this.count++;
+    return "$" + prefix + this.count;
+  },
+  
+  CallExpression: function(s) {
+    if (/^\w+\.forEach$/.test(dumper.dump(s.callee))) {
+      var arrayName = s.callee.object.name;
+      var f = s.arguments[0];
+      var paramName = f.params[0].name;
+      var body = f.body.body;
+      var src = "for (var {i}=0, {len}={array}.length; {i}<{len}; {i}++){var {param} = {array}[{i}];}";
+      src = src.replace(/\{i}/g, this.getVar("i"));
+      src = src.replace(/\{len}/g, this.getVar("len"));
+      src = src.replace(/\{param}/g, paramName);
+      src = src.replace(/\{array}/g, arrayName);
+      var forp = Reflect.parse(src);
+      var fors = forp.body[0];
+      fors.body.body = fors.body.body.concat(body);
+      return this.opt(fors);
+    }
+    else {
+      this.opt(s.callee);
+      this.opt(s.arguments);
+      return s;
+    }
+  }
+};
+
 system.args.forEach(function(filename, i) {
   // ignore first argument (the script name itself)
   if (i===0) return;
   
   var code = Reflect.parse(readFile(filename));
+  code = optimizer.opt(code);
   system.print(dumper.dump(code));
 });
