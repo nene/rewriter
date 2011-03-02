@@ -195,7 +195,8 @@ var optimizer = {
       var arrayName = dumper.dump(s.callee.object);
       var f = s.arguments[0];
       var paramName = f.params[0].name;
-      var body = f.body.body;
+      // recursively also optimize the loop body
+      var body = this.opt(f.body.body);
       var src = "for (var {i}=0, {len}={array}.length; {i}<{len}; {i}++){var {param} = {array}[{i}];}";
       src = src.replace(/\{i}/g, this.getVar("i"));
       src = src.replace(/\{len}/g, this.getVar("len"));
@@ -204,7 +205,7 @@ var optimizer = {
       var forp = Reflect.parse(src);
       var fors = forp.body[0];
       fors.body.body = fors.body.body.concat(body);
-      return this.opt(fors);
+      return fors;
     }
     else {
       this.opt(s.callee);
