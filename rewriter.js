@@ -191,8 +191,8 @@ var optimizer = {
   },
   
   CallExpression: function(s) {
-    if (/^\w+\.forEach$/.test(dumper.dump(s.callee))) {
-      var arrayName = s.callee.object.name;
+    if (this.isForEach(s.callee)) {
+      var arrayName = dumper.dump(s.callee.object);
       var f = s.arguments[0];
       var paramName = f.params[0].name;
       var body = f.body.body;
@@ -211,6 +211,13 @@ var optimizer = {
       this.opt(s.arguments);
       return s;
     }
+  },
+  
+  // tests if expression is a forEach MemberExpression
+  isForEach: function(e) {
+    return e.type === "MemberExpression" &&
+           e.property.type == "Identifier" &&
+           e.property.name === "forEach";
   }
 };
 
