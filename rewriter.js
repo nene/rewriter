@@ -165,6 +165,18 @@ var dumper = {
   }
 };
 
+// A simple templating function
+//
+// Replaces placeholders in string, parses the string to AST and
+// returns the first statement in AST.
+function parseTemplate(tpl, data) {
+  tpl = tpl.join("");
+  for (var key in data) {
+    tpl = tpl.replace(new RegExp("\{"+key+"}", "g"), data[key]);
+  }
+  return Reflect.parse(tpl).body[0];
+}
+
 var optimizer = {
   opt: function(s) {
     if (typeof s === "object" && s && this[s.type]) {
@@ -192,20 +204,25 @@ var optimizer = {
   
   CallExpression: function(s) {
     if (this.isForEach(s.callee)) {
-      var arrayName = dumper.dump(s.callee.object);
-      var f = s.arguments[0];
-      var paramName = f.params[0].name;
+      var fn = s.arguments[0];
+      
+      var forStatement = parseTemplate([
+        "for (var {i}=0, {len}={array}.length; {i}<{len}; {i}++) {",
+          "var {param} = {array}[{i}];",
+        "}"
+      ], {
+        i: this.getVar("i"),
+        len: this.getVar("len"),
+        param: fn.params[0].name,
+        array: dumper.dump(s.callee.object)
+      });
+      
       // recursively also optimize the loop body
-      var body = this.opt(f.body.body);
-      var src = "for (var {i}=0, {len}={array}.length; {i}<{len}; {i}++){var {param} = {array}[{i}];}";
-      src = src.replace(/\{i}/g, this.getVar("i"));
-      src = src.replace(/\{len}/g, this.getVar("len"));
-      src = src.replace(/\{param}/g, paramName);
-      src = src.replace(/\{array}/g, arrayName);
-      var forp = Reflect.parse(src);
-      var fors = forp.body[0];
-      fors.body.body = fors.body.body.concat(body);
-      return fors;
+      var loopBody = this.opt(fn.body.body);
+      // and append it to for-statement body
+      forStatement.body.body = forStatement.body.body.concat(loopBody);
+      
+      return forStatement;
     }
     else {
       this.opt(s.callee);
