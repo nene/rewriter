@@ -203,7 +203,7 @@ var optimizer = {
   },
   
   CallExpression: function(s) {
-    if (this.isForEach(s.callee)) {
+    if (this.isForEach(s)) {
       var fn = s.arguments[0];
       
       var forStatement = parseTemplate([
@@ -232,10 +232,17 @@ var optimizer = {
   },
   
   // tests if expression is a forEach MemberExpression
-  isForEach: function(e) {
-    return e.type === "MemberExpression" &&
-           e.property.type == "Identifier" &&
-           e.property.name === "forEach";
+  // + first argument must be function
+  // + second argument is wither "this" or nothing.
+  isForEach: function(s) {
+    var c = s.callee;
+    var fn = s.arguments[0];
+    var scope = s.arguments[1];
+    return c.type === "MemberExpression" &&
+           c.property.type == "Identifier" &&
+           c.property.name === "forEach" &&
+           fn && fn.type === "FunctionExpression" &&
+           (!scope || scope.type === "ThisExpression");
   }
 };
 
