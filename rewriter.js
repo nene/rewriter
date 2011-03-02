@@ -129,6 +129,10 @@ var dumper = {
     }
   },
   
+  ArrayExpression: function(s) {
+    return "[" + s.elements.map(this.dump, this).join(", ") + "]";
+  },
+  
   ObjectExpression: function(s) {
     return "{" + s.properties.map(this.dump, this).join(", ") + "}";
   },
